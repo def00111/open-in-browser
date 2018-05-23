@@ -1,6 +1,9 @@
 /**
  * (c) 2013 Rob Wu <rob@robwu.nl> (https://robwu.nl)
- */
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 /* globals console,
             mimeMetadata,
             mime_getFriendlyName,
@@ -157,6 +160,19 @@ function renderMetadata(filename, contentLength, isSniffingMimeType, guessedMime
     if (importReturnValue()) {
         return;
     }
+
+    // Default behavior, when the user has not overridden the default action.
+
+    if (dialogArguments.forceDownload) {
+        setDefaultChoice('save');
+    } else if (!isSniffingMimeType && !mimeType) {
+        setDefaultChoice('openwith');
+    }
+
+    if (isSniffingMimeType) {
+        $('mime-type').value = 'sniffed';
+        return;
+    }
     var suggestedMimeAction = getSuggestedMimeAction(effectiveMimeType);
     if (suggestedMimeAction) {
         $('mime-type').value = suggestedMimeAction;
@@ -219,8 +235,6 @@ function getSuggestedMimeAction(/*string*/ mimeType) {
     case 'image-x-generic':
         return 'image/png';
     default:
-        if (mimeType.lastIndexOf('+xml') !== -1)
-            return 'text/xml';
         if (mimeType.startsWith('text/'))
             return 'text/plain';
         return 'original'; // Open as server-sent MIME = most likely download
@@ -248,6 +262,7 @@ function bindFormEvents() {
         $('mime-custom-completion').appendChild(options);
     };
     $('mime-type').onchange = function() {
+        document.querySelector('input[name="choice"][value="openas"]').checked = true;
         var isCustom = this.value === 'other';
         var mimeCustom = $('mime-custom');
         if (mimeCustom.hidden === isCustom) {
@@ -338,13 +353,7 @@ function exportReturnValue() {
 function importReturnValue() {
     var returnValue = dialogArguments.desiredAction;
     if (!returnValue.action) {
-        if (dialogArguments.isSniffingMimeType) {
-            returnValue = {action: MimeActions.OIB_SERVER_SNIFF};
-        } else if (dialogArguments.mimeType === '') {
-            returnValue = {action: MimeActions.OPENWITH};
-        } else {
-            return false;
-        }
+        return false;
     }
     // Use saved value
     var choice;
@@ -376,10 +385,13 @@ function importReturnValue() {
             choice = 'save';
         break;
     }
+    setDefaultChoice(choice);
+    return true;
+}
+function setDefaultChoice(choice) {
     var checkbox = document.querySelector('input[name="choice"][value="' + choice + '"]');
     checkbox.checked = true;
     checkbox.focus();
-    return true;
 }
 
 function closeDialog() {

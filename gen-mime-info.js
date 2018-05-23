@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 /**
- * (c) Rob Wu <rob@robwu.nl> (https://robwu.nl)
- *
+ * (c) 2013 Rob Wu <rob@robwu.nl> (https://robwu.nl)
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/**
  * Generates i18n strings and MIME-mappings from the shared mime-info database.
  *
  * 1. Add extra MIME-types by copying files from /usr/share/mime/packages to shared-mime-info.
@@ -163,6 +167,8 @@ var metadata = {
 };
 var i18n = {};
 
+var extensionToMimeWeight = {};
+
 
 // Parse XML files from the Shared MIME-info database
 // Duplicate entries are merged as follows:
@@ -218,11 +224,27 @@ function xml2mime(xmlFilename, /*function*/ done) {
                 metadata.mimeToIcon[mimeType] = icon;
             }
 
-            var extension = item.glob && item.glob[0].$.pattern;
-            if (/^\*(?:\.[a-z0-9+]+){1,2}$/i.test(extension)) {
-                extension = extension.slice(2).toLowerCase();
-                metadata.extensionToMime[extension] = mimeType;
+            var globs = item.glob;
+            if (!Array.isArray(globs)) {
+                globs = globs ? [globs] : [];
             }
+            globs.forEach(function(glob) {
+                var extension = glob.$.pattern;
+                if (!/^\*(?:\.[a-z0-9+]+){1,2}$/i.test(extension)) {
+                    return;
+                }
+                extension = extension.slice(2).toLowerCase();
+
+                var weight = parseInt(glob.$.weight, 10);
+                weight = isNaN(weight) ? 50 : weight;
+
+                var previousWeight = extensionToMimeWeight[extension];
+                if (weight < previousWeight) { // also false if previousWeight is undefined.
+                    return;
+                }
+                extensionToMimeWeight[extension] = weight;
+                metadata.extensionToMime[extension] = mimeType;
+            });
 
             var aliases = item.alias;
             if (aliases) {
